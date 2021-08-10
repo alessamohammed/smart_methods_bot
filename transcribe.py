@@ -24,6 +24,31 @@ import time
 import pyaudio
 import websocket
 from websocket._abnf import ABNF
+from ibm_watson import TextToSpeechV1
+from ibm_cloud_sdk_core.authenticators import IAMAuthenticator
+from playsound import playsound
+#import ibm chatbot
+from ibm_watson import AssistantV2
+from dotenv import load_dotenv
+import os
+load_dotenv()
+
+text_to_speech_url = os.environ.get('text_to_speech_url')
+text_to_speech_api = os.environ.get('text_to_speech_api')
+chat_bot_api = os.environ.get('chat_bot_api')
+chat_bot_url = os.environ.get('chat_bot_url')
+authenticator = IAMAuthenticator(text_to_speech_api)
+text_to_speech = TextToSpeechV1(
+    authenticator=authenticator
+)
+text_to_speech.set_service_url(text_to_speech_url)
+
+authenticator = IAMAuthenticator(chat_bot_api)
+assistant = AssistantV2(
+version='2021-07-29',
+authenticator=authenticator
+)
+assistant.set_service_url(chat_bot_url)
 
 CHUNK = 1024
 FORMAT = pyaudio.paInt16
@@ -36,6 +61,7 @@ CHANNELS = 1
 # standard default. If you have an audio device that requires
 # something different, change this.
 RATE = 44100
+text =""
 RECORD_SECONDS = 5
 FINALS = []
 LAST = None
@@ -57,7 +83,9 @@ def read_audio(ws, timeout):
     over the websocket wire.
 
     """
+    global text
     global RATE
+
     p = pyaudio.PyAudio()
     # NOTE(sdague): if you don't seem to be getting anything off of
     # this you might need to specify:
@@ -88,7 +116,27 @@ def read_audio(ws, timeout):
     stream.stop_stream()
     stream.close()
     print("* done recording")
-
+    with open("output.txt", "w") as out:
+        out.write(text)
+    output = assistant.message_stateless(
+        assistant_id="d90d1adf-5069-4cae-9c9e-6e02abd33e6b",
+        input={
+            'message_type': 'text',
+            'text': text
+        }
+    ).get_result()
+    answer = json.loads(json.dumps(output, indent=2)) 
+    print(answer["output"]["generic"][0]["text"])
+    chatpot_res = answer["output"]["generic"][0]["text"]
+    res = text_to_speech.synthesize(
+            chatpot_res,
+            voice='ar-MS_OmarVoice',
+            accept='audio/mp3'        
+        ).get_result().content
+    with open('recording.mp3', 'wb') as audio_file:
+        audio_file.write(res)
+    playsound('recording.mp3', 'wb')
+    time.sleep(2)
     # In order to get a final response from STT we send a stop, this
     # will force a final=True return message.
     data = {"action": "stop"}
@@ -172,7 +220,7 @@ def get_url():
     region = config.get('auth', 'region')
     host = REGION_MAP[region]
     return ("wss://{}/speech-to-text/api/v1/recognize"
-           "?model=en-US_BroadbandModel").format(host)
+           "?model=ar-MS_BroadbandModel").format(host)
 
 def get_auth():
     config = configparser.RawConfigParser()
