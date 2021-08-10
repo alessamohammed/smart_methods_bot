@@ -46,6 +46,4 @@ things together. The output will look something like this.
 اهلا
 * done recording
      مرحبا، كيف يمكنني مساعدتك؟
-Transcription is far from perfect. and the bot will replay in text and audio
-
-of chunking the stream as we go and how it corrects with context.
+Transcription is far from perfect. and the bot will replay in text and audio.
